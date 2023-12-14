@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 4
+names: ['Driver-with-Helmet', 'Driver-without-Helmet', 'Non-Driver-with-Helmet', 'Non-Driver-without-Helmet']
+
+roboflow:
+  workspace: montbleu-technologies-bp9pd
+  project: driver-with-helmet
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/montbleu-technologies-bp9pd/driver-with-helmet/dataset/1

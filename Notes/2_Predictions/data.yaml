@@ -1,0 +1,13 @@
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 3
+names: ['just_helmet', 'with_helmet', 'without_helmet']
+
+roboflow:
+  workspace: montbleu-technologies-bp9pd
+  project: helmet_detection-cbhq5
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/montbleu-technologies-bp9pd/helmet_detection-cbhq5/dataset/2
