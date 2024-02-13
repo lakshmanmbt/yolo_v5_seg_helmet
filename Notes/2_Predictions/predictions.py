@@ -225,11 +225,11 @@ def run(
 
 
 
-def parse_opt():
+def parse_opt(onnx_model, test_img, data_yaml):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default=ROOT / '2_Predictions/Model/weights/best.onnx', help='model path(s)')
-    parser.add_argument('--source', type=str, default=ROOT / '2_Predictions/00081.jpg', help='file/dir/URL/glob/screen/0(webcam)')
-    parser.add_argument('--data', type=str, default=ROOT / '2_Predictions/data.yaml', help='(optional) dataset.yaml path')
+    parser.add_argument('--weights', nargs='+', type=str, default=ROOT / onnx_model, help='model path(s)')
+    parser.add_argument('--source', type=str, default=ROOT / test_img, help='file/dir/URL/glob/screen/0(webcam)')
+    parser.add_argument('--data', type=str, default=ROOT / data_yaml, help='(optional) dataset.yaml path')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
@@ -265,6 +265,4 @@ def main(opt):
     run(**vars(opt))
 
 
-if __name__ == '__main__':
-    opt = parse_opt()
-    main(opt)
+

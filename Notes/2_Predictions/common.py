@@ -323,7 +323,7 @@ class Segment(Detect):
         self.npr = npr  # number of protos
         self.no = 5 + nc + self.nm  # number of outputs per anchor
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
-        self.proto = Proto(ch[0], self.npr, self.nm)  # protos
+        # self.proto = Proto(ch[0], self.npr, self.nm)  # protos
         self.detect = Detect.forward
 
     def forward(self, x):
@@ -371,7 +371,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
     LOGGER.info(f"\n{'':>3}{'from':>18}{'n':>3}{'params':>10}  {'module':<40}{'arguments':<30}")
     anchors, nc, gd, gw, act = d['anchors'], d['nc'], d['depth_multiple'], d['width_multiple'], d.get('activation')
     if act:
-        Conv.default_act = eval(act)  # redefine default activation, i.e. Conv.default_act = nn.SiLU()
+        # Conv.default_act = eval(act)  # redefine default activation, i.e. Conv.default_act = nn.SiLU()
         LOGGER.info(f"{colorstr('activation:')} {act}")  # print
     na = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors  # number of anchors
     no = na * (nc + 5)  # number of outputs = anchors * (classes + 5)
@@ -384,20 +384,23 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                 args[j] = eval(a) if isinstance(a, str) else a  # eval strings
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
-        if m in {
-                Conv, GhostConv, Bottleneck, GhostBottleneck, SPP, SPPF, DWConv, MixConv2d, Focus, CrossConv,
-                BottleneckCSP, C3, C3TR, C3SPP, C3Ghost, nn.ConvTranspose2d, DWConvTranspose2d, C3x}:
+        # if m in {
+        #         Conv, GhostConv, Bottleneck, GhostBottleneck, SPP, SPPF, DWConv, MixConv2d, Focus, CrossConv,
+        #         BottleneckCSP, C3, C3TR, C3SPP, C3Ghost, nn.ConvTranspose2d, DWConvTranspose2d, C3x}:
+        if m in {MixConv2d, nn.ConvTranspose2d, }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
                 c2 = make_divisible(c2 * gw, 8)
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x}:
+            # if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x}:
+            if m in {}:
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
-        elif m is Concat:
+        # elif m is Concat:
+        elif True:
             c2 = sum(ch[x] for x in f)
         # TODO: channel, gw, gd
         elif m in {Detect, Segment}:
@@ -551,7 +554,8 @@ class BaseModel(nn.Module):
     def fuse(self):  # fuse model Conv2d() + BatchNorm2d() layers
         LOGGER.info('Fusing layers... ')
         for m in self.model.modules():
-            if isinstance(m, (Conv, DWConv)) and hasattr(m, 'bn'):
+            # if isinstance(m, (Conv, DWConv)) and hasattr(m, 'bn'):
+            if isinstance(m) and hasattr(m, 'bn'):
                 m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
                 delattr(m, 'bn')  # remove batchnorm
                 m.forward = m.forward_fuse  # update forward
@@ -676,31 +680,31 @@ class TritonRemoteModel:
         """
 
         parsed_url = urlparse(url)
-        if parsed_url.scheme == 'grpc':
-            from tritonclient.grpc import InferenceServerClient, InferInput
+        # if parsed_url.scheme == 'grpc':
+        #     from tritonclient.grpc import InferenceServerClient, InferInput
 
-            self.client = InferenceServerClient(parsed_url.netloc)  # Triton GRPC client
-            model_repository = self.client.get_model_repository_index()
-            self.model_name = model_repository.models[0].name
-            self.metadata = self.client.get_model_metadata(self.model_name, as_json=True)
+        #     self.client = InferenceServerClient(parsed_url.netloc)  # Triton GRPC client
+        #     model_repository = self.client.get_model_repository_index()
+        #     self.model_name = model_repository.models[0].name
+        #     self.metadata = self.client.get_model_metadata(self.model_name, as_json=True)
 
-            def create_input_placeholders() -> typing.List[InferInput]:
-                return [
-                    InferInput(i['name'], [int(s) for s in i['shape']], i['datatype']) for i in self.metadata['inputs']]
+        #     def create_input_placeholders() -> typing.List[InferInput]:
+        #         return [
+        #             InferInput(i['name'], [int(s) for s in i['shape']], i['datatype']) for i in self.metadata['inputs']]
 
-        else:
-            from tritonclient.http import InferenceServerClient, InferInput
+        # else:
+        #     from tritonclient.http import InferenceServerClient, InferInput
 
-            self.client = InferenceServerClient(parsed_url.netloc)  # Triton HTTP client
-            model_repository = self.client.get_model_repository_index()
-            self.model_name = model_repository[0]['name']
-            self.metadata = self.client.get_model_metadata(self.model_name)
+        #     self.client = InferenceServerClient(parsed_url.netloc)  # Triton HTTP client
+        #     model_repository = self.client.get_model_repository_index()
+        #     self.model_name = model_repository[0]['name']
+        #     self.metadata = self.client.get_model_metadata(self.model_name)
 
-            def create_input_placeholders() -> typing.List[InferInput]:
-                return [
-                    InferInput(i['name'], [int(s) for s in i['shape']], i['datatype']) for i in self.metadata['inputs']]
+        #     def create_input_placeholders() -> typing.List[InferInput]:
+        #         return [
+        #             InferInput(i['name'], [int(s) for s in i['shape']], i['datatype']) for i in self.metadata['inputs']]
 
-        self._create_input_placeholders_fn = create_input_placeholders
+        # self._create_input_placeholders_fn = create_input_placeholders
 
     @property
     def runtime(self):
@@ -834,28 +838,28 @@ class DetectMultiBackend(nn.Module):
         elif xml:  # OpenVINO
             LOGGER.info(f'Loading {w} for OpenVINO inference...')
             check_requirements('openvino>=2023.0')  # requires openvino-dev: https://pypi.org/project/openvino-dev/
-            from openvino.runtime import Core, Layout, get_batch
-            core = Core()
+            # from openvino.runtime import Core, Layout, get_batch
+            # core = Core()
             if not Path(w).is_file():  # if not *.xml
                 w = next(Path(w).glob('*.xml'))  # get *.xml file from *_openvino_model dir
-            ov_model = core.read_model(model=w, weights=Path(w).with_suffix('.bin'))
-            if ov_model.get_parameters()[0].get_layout().empty:
-                ov_model.get_parameters()[0].set_layout(Layout('NCHW'))
-            batch_dim = get_batch(ov_model)
-            if batch_dim.is_static:
-                batch_size = batch_dim.get_length()
-            ov_compiled_model = core.compile_model(ov_model, device_name='AUTO')  # AUTO selects best available device
+            # ov_model = core.read_model(model=w, weights=Path(w).with_suffix('.bin'))
+            # if ov_model.get_parameters()[0].get_layout().empty:
+            #     ov_model.get_parameters()[0].set_layout(Layout('NCHW'))
+            # batch_dim = get_batch(ov_model)
+            # if batch_dim.is_static:
+            #     batch_size = batch_dim.get_length()
+            # ov_compiled_model = core.compile_model(ov_model, device_name='AUTO')  # AUTO selects best available device
             stride, names = self._load_metadata(Path(w).with_suffix('.yaml'))  # load metadata
         elif engine:  # TensorRT
             LOGGER.info(f'Loading {w} for TensorRT inference...')
-            import tensorrt as trt  # https://developer.nvidia.com/nvidia-tensorrt-download
-            check_version(trt.__version__, '7.0.0', hard=True)  # require tensorrt>=7.0.0
+            # import tensorrt as trt  # https://developer.nvidia.com/nvidia-tensorrt-download
+            # check_version(trt.__version__, '7.0.0', hard=True)  # require tensorrt>=7.0.0
             if device.type == 'cpu':
                 device = torch.device('cuda:0')
             Binding = namedtuple('Binding', ('name', 'dtype', 'shape', 'data', 'ptr'))
-            logger = trt.Logger(trt.Logger.INFO)
-            with open(w, 'rb') as f, trt.Runtime(logger) as runtime:
-                model = runtime.deserialize_cuda_engine(f.read())
+            # logger = trt.Logger(trt.Logger.INFO)
+            # with open(w, 'rb') as f, trt.Runtime(logger) as runtime:
+                # model = runtime.deserialize_cuda_engine(f.read())
             context = model.create_execution_context()
             bindings = OrderedDict()
             output_names = []
@@ -863,37 +867,40 @@ class DetectMultiBackend(nn.Module):
             dynamic = False
             for i in range(model.num_bindings):
                 name = model.get_binding_name(i)
-                dtype = trt.nptype(model.get_binding_dtype(i))
+                # dtype = trt.nptype(model.get_binding_dtype(i))
                 if model.binding_is_input(i):
                     if -1 in tuple(model.get_binding_shape(i)):  # dynamic
                         dynamic = True
                         context.set_binding_shape(i, tuple(model.get_profile_shape(0, i)[2]))
-                    if dtype == np.float16:
+                    # if dtype == np.float16:
                         fp16 = True
                 else:  # output
                     output_names.append(name)
                 shape = tuple(context.get_binding_shape(i))
-                im = torch.from_numpy(np.empty(shape, dtype=dtype)).to(device)
-                bindings[name] = Binding(name, dtype, shape, im, int(im.data_ptr()))
+                # im = torch.from_numpy(np.empty(shape, dtype=dtype)).to(device)
+                im = torch.from_numpy(np.empty(shape)).to(device)
+                # bindings[name] = Binding(name, dtype, shape, im, int(im.data_ptr()))
+                bindings[name] = Binding(name, shape, im, int(im.data_ptr()))
             binding_addrs = OrderedDict((n, d.ptr) for n, d in bindings.items())
             batch_size = bindings['images'].shape[0]  # if dynamic, this is instead max batch size
         elif coreml:  # CoreML
             LOGGER.info(f'Loading {w} for CoreML inference...')
-            import coremltools as ct
-            model = ct.models.MLModel(w)
+            # import coremltools as ct
+            # model = ct.models.MLModel(w)
         elif saved_model:  # TF SavedModel
             LOGGER.info(f'Loading {w} for TensorFlow SavedModel inference...')
-            import tensorflow as tf
+            # import tensorflow as tf
             keras = False  # assume TF1 saved_model
-            model = tf.keras.models.load_model(w) if keras else tf.saved_model.load(w)
+            # model = tf.keras.models.load_model(w) if keras else tf.saved_model.load(w)
         elif pb:  # GraphDef https://www.tensorflow.org/guide/migrate#a_graphpb_or_graphpbtxt
             LOGGER.info(f'Loading {w} for TensorFlow GraphDef inference...')
-            import tensorflow as tf
+            # import tensorflow as tf
 
             def wrap_frozen_graph(gd, inputs, outputs):
-                x = tf.compat.v1.wrap_function(lambda: tf.compat.v1.import_graph_def(gd, name=''), [])  # wrapped
-                ge = x.graph.as_graph_element
-                return x.prune(tf.nest.map_structure(ge, inputs), tf.nest.map_structure(ge, outputs))
+                # x = tf.compat.v1.wrap_function(lambda: tf.compat.v1.import_graph_def(gd, name=''), [])  # wrapped
+                # ge = x.graph.as_graph_element
+                # return x.prune(tf.nest.map_structure(ge, inputs), tf.nest.map_structure(ge, outputs))
+                pass
 
             def gd_outputs(gd):
                 name_list, input_list = [], []
@@ -902,29 +909,31 @@ class DetectMultiBackend(nn.Module):
                     input_list.extend(node.input)
                 return sorted(f'{x}:0' for x in list(set(name_list) - set(input_list)) if not x.startswith('NoOp'))
 
-            gd = tf.Graph().as_graph_def()  # TF GraphDef
-            with open(w, 'rb') as f:
-                gd.ParseFromString(f.read())
-            frozen_func = wrap_frozen_graph(gd, inputs='x:0', outputs=gd_outputs(gd))
+            # gd = tf.Graph().as_graph_def()  # TF GraphDef
+            # with open(w, 'rb') as f:
+                # gd.ParseFromString(f.read())
+            # frozen_func = wrap_frozen_graph(gd, inputs='x:0', outputs=gd_outputs(gd))
         elif tflite or edgetpu:  # https://www.tensorflow.org/lite/guide/python#install_tensorflow_lite_for_python
             try:  # https://coral.ai/docs/edgetpu/tflite-python/#update-existing-tf-lite-code-for-the-edge-tpu
-                from tflite_runtime.interpreter import Interpreter, load_delegate
+                # from tflite_runtime.interpreter import Interpreter, load_delegate
+                pass
             except ImportError:
-                import tensorflow as tf
-                Interpreter, load_delegate = tf.lite.Interpreter, tf.lite.experimental.load_delegate,
+                # import tensorflow as tf
+                # Interpreter, load_delegate = tf.lite.Interpreter, tf.lite.experimental.load_delegate,
+                pass
             if edgetpu:  # TF Edge TPU https://coral.ai/software/#edgetpu-runtime
                 LOGGER.info(f'Loading {w} for TensorFlow Lite Edge TPU inference...')
                 delegate = {
                     'Linux': 'libedgetpu.so.1',
                     'Darwin': 'libedgetpu.1.dylib',
                     'Windows': 'edgetpu.dll'}[platform.system()]
-                interpreter = Interpreter(model_path=w, experimental_delegates=[load_delegate(delegate)])
+                # interpreter = Interpreter(model_path=w, experimental_delegates=[load_delegate(delegate)])
             else:  # TFLite
                 LOGGER.info(f'Loading {w} for TensorFlow Lite inference...')
-                interpreter = Interpreter(model_path=w)  # load TFLite model
-            interpreter.allocate_tensors()  # allocate
-            input_details = interpreter.get_input_details()  # inputs
-            output_details = interpreter.get_output_details()  # outputs
+                # interpreter = Interpreter(model_path=w)  # load TFLite model
+            # interpreter.allocate_tensors()  # allocate
+            # input_details = interpreter.get_input_details()  # inputs
+            # output_details = interpreter.get_output_details()  # outputs
             # load metadata
             with contextlib.suppress(zipfile.BadZipFile):
                 with zipfile.ZipFile(w, 'r') as model:
@@ -936,16 +945,17 @@ class DetectMultiBackend(nn.Module):
         elif paddle:  # PaddlePaddle
             LOGGER.info(f'Loading {w} for PaddlePaddle inference...')
             check_requirements('paddlepaddle-gpu' if cuda else 'paddlepaddle')
-            import paddle.inference as pdi
+            # import paddle.inference as pdi
             if not Path(w).is_file():  # if not *.pdmodel
                 w = next(Path(w).rglob('*.pdmodel'))  # get *.pdmodel file from *_paddle_model dir
             weights = Path(w).with_suffix('.pdiparams')
-            config = pdi.Config(str(w), str(weights))
+            # config = pdi.Config(str(w), str(weights))
             if cuda:
-                config.enable_use_gpu(memory_pool_init_size_mb=2048, device_id=0)
-            predictor = pdi.create_predictor(config)
-            input_handle = predictor.get_input_handle(predictor.get_input_names()[0])
-            output_names = predictor.get_output_names()
+                # config.enable_use_gpu(memory_pool_init_size_mb=2048, device_id=0)
+                pass
+            # predictor = pdi.create_predictor(config)
+            # input_handle = predictor.get_input_handle(predictor.get_input_names()[0])
+            # output_names = predictor.get_output_names()
         elif triton:  # NVIDIA Triton Inference Server
             LOGGER.info(f'Using {w} as Triton Inference Server...')
             check_requirements('tritonclient[all]')
